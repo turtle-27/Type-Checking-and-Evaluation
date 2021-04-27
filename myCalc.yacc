@@ -1,47 +1,62 @@
 (* User declarations *)
-fun lookup "TRUE" = "TRUE, "
-    | lookup "FALSE" = "FALSE, "
+fun checkBool "TRUE" = true
+    | checkBool "FALSE" = false
 
 %%
 (* required declarations*)
 %name myCalc
 
 %term 
-    CONST of string | ID of string | NOT | AND | OR | XOR | EQUALS
-|   IMPLIES | IF | THEN | ELSE | LPAREN | RPAREN | EOF | TERM
+    CONST of string | ID of string | NOT | AND | OR | XOR | EQUALS | LET | IN | END | LESSTHAN | GREATERTHAN
+|   IMPLIES | IF | THEN | ELSE | FI | NEGATE | LPAREN | RPAREN | EOF | TERM | MINUS | PLUS | TIMES | EQ | NUM of int 
 
-%nonterm program of string | temp of string | statement of string | formula of string
+%nonterm program of AST.exp list | temp of AST.exp list | statement of AST.exp | formula of AST.exp | decl of AST.decl
 %pos int
 
 (* optional declarations *)
 %eop EOF
 %noshift EOF
 
-%right IF THEN ELSE 
+%left EQ
+%right IF THEN ELSE FI
 %right IMPLIES
 %left AND OR XOR EQUALS
-%right NOT
+%left LESSTHAN GREATERTHAN
+%left MINUS PLUS
+%left TIMES
+%right NOT NEGATE
+
 
 %start program 
 
 %verbose
 
 %%
-program: temp statement (temp^statement^"program gives temp statement, ")
-        | statement (statement^" program gives statement, ")
+program: temp (temp)
 
-temp: temp statement (temp^statement^"temp gives temp statement, ")
-    | statement (statement^" temp gives statement, ")
-    
-statement: formula TERM (formula^" TERM ;, "^"statement gives formula TERM, ")
+temp: temp TERM statement (statement::temp)
+    | statement (statement::[])
 
-formula: CONST ("CONST "^lookup CONST^"formula gives CONST, ")
-    |   ID ("ID "^ID^", formula gives ID, ")
-    |   NOT formula ("NOT NOT, "^formula^"formula gives NOT formula, ")
-    |   formula AND formula (formula1^"AND AND, "^formula2^"formula gives formula AND formula, ")
-    |   formula OR formula (formula1^"OR OR, "^formula2^"formula gives formula OR formula, ")
-    |   formula XOR formula (formula1^"XOR XOR, "^formula2^"formula gives formula XOR formula, ")
-    |   formula EQUALS formula (formula1^"EQUALS EQUALS, "^formula2^"formula gives formula EQUALS formula, ")
-    |   formula IMPLIES formula (formula1^"IMPLIES IMPLIES, "^formula2^"formula gives formula IMPLIES formula, ")
-    |   IF formula THEN formula ELSE formula ("IF IF, "^formula1^"THEN THEN, "^formula2^"ELSE ELSE, "^formula3^"formula gives IF formula THEN formula ELSE formula, ")
-    |   LPAREN formula RPAREN ("LPAREN (, "^formula^"RPAREN ), formula gives LPAREN formula RPAREN, ")
+
+statement: formula (formula) 
+
+decl: ID EQ formula (AST.ValDecl(ID, formula))
+
+formula: CONST (AST.BoolExp(checkBool(CONST)))
+    |   ID (AST.VarExp(ID))
+    |   NUM (AST.NumExp(NUM))
+    |   NOT formula (AST.NExp(AST.Not, formula))
+    |   NEGATE formula  (AST.NExp(AST.Negate, formula))
+    |   formula AND formula (AST.BinExp(AST.And, formula1, formula2))
+    |   formula OR formula (AST.BinExp(AST.Or, formula1, formula2))
+    |   formula XOR formula (AST.BinExp(AST.Xor, formula1, formula2))
+    |   formula EQUALS formula (AST.BinExp(AST.Equals, formula1, formula2))
+    |   formula IMPLIES formula (AST.BinExp(AST.Implies, formula1, formula2))
+    |   IF formula THEN formula ELSE formula FI (AST.ifExp(formula1, formula2, formula3))
+    |   LPAREN formula RPAREN (formula)
+    |   formula LESSTHAN formula (AST.BinExp(AST.Lessthan, formula1, formula2))
+    |   formula GREATERTHAN formula (AST.BinExp(AST.Greaterthan, formula1, formula2))
+    |   formula PLUS formula (AST.BinExp(AST.Add, formula1, formula2))
+    |   formula MINUS formula (AST.BinExp(AST.Sub, formula1, formula2))
+    |   formula TIMES formula (AST.BinExp(AST.Mul, formula1, formula2))
+    |   LET decl IN formula END (AST.LetExp(decl, formula))
